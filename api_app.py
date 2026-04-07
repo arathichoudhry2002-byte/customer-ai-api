@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import mysql.connector
 from flask_mail import Mail, Message
-import os
 
 app = Flask(__name__)
 print("🚀 Customer AI API Running...")
@@ -11,8 +10,9 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 
-app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
+# ✅ YOUR EMAIL DETAILS
+app.config['MAIL_USERNAME'] = 'arathi.1ki23ai006@gmail.com'
+app.config['MAIL_PASSWORD'] = 'czcbnzrolvxzemgq'
 
 mail = Mail(app)
 
@@ -22,12 +22,15 @@ cursor = None
 
 try:
     db = mysql.connector.connect(
-        host=os.environ.get("HOST"),          # Railway host
-        user=os.environ.get("USER"),          # root
-        password=os.environ.get("PASSWORD"),  # Railway password
-        database=os.environ.get("DATABASE"),  # railway
-        port=int(os.environ.get("PORT"))      # 25755 ✅ FIXED
+        host="interchange.proxy.rlwy.net",
+        user="root",
+        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
+        database="railway",
+        port=25755,
+        ssl_disabled=False,          # 🔥 IMPORTANT FIX
+        ssl_verify_cert=False
     )
+
     cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
 
@@ -55,11 +58,7 @@ def send_email(to, subject, body):
 # ---------------- API KEY ----------------
 def validate_api_key(req):
     api_key = req.headers.get("x-api-key")
-
-    if api_key != "test123":
-        return False
-
-    return True
+    return api_key == "test123"
 
 
 # ---------------- HOME ----------------
@@ -197,5 +196,4 @@ def check_behavior(email):
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render port
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
