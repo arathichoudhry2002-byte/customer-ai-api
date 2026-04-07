@@ -134,11 +134,25 @@ def add_to_cart():
         if not email or not product_id:
             return jsonify({"error": "Missing email or product_id"}), 400
 
-        cursor.execute("""
-            UPDATE user_behavior
-            SET added_to_cart = TRUE
-            WHERE email=%s AND product_id=%s
-        """, (email, product_id))
+        # 🔥 CHECK IF ROW EXISTS
+        cursor.execute(
+            "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
+            (email, product_id)
+        )
+        row = cursor.fetchone()
+
+        if row:
+            cursor.execute("""
+                UPDATE user_behavior
+                SET added_to_cart = TRUE
+                WHERE email=%s AND product_id=%s
+            """, (email, product_id))
+        else:
+            # 🔥 INSERT IF NOT EXISTS
+            cursor.execute("""
+                INSERT INTO user_behavior (email, product_id, clicks, added_to_cart)
+                VALUES (%s, %s, 1, TRUE)
+            """, (email, product_id))
 
         db.commit()
 
@@ -146,9 +160,8 @@ def add_to_cart():
         return jsonify({"decision": decision})
 
     except Exception as e:
-        print("❌ CART ERROR:", e)
+        print("❌ ADD TO CART ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
 
 # ---------------- ANALYZE ----------------
 @app.route("/api/analyze", methods=["POST"])
