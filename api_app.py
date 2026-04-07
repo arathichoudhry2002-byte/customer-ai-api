@@ -4,7 +4,7 @@ from flask_mail import Mail, Message
 import os
 
 app = Flask(__name__)
-print("✅ API APP FILE IS RUNNING")
+print("🚀 Customer AI API Running...")
 
 # ---------------- MAIL CONFIG ----------------
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -17,21 +17,22 @@ app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
 mail = Mail(app)
 
 # ---------------- DB CONNECT ----------------
+db = None
+cursor = None
+
 try:
     db = mysql.connector.connect(
         host=os.environ.get("HOST"),
         user=os.environ.get("USER"),
         password=os.environ.get("PASSWORD"),
         database=os.environ.get("DATABASE"),
-        port=int(os.environ.get("DB_PORT"))  # ✅ FIXED
+        port=int(os.environ.get("DB_PORT"))
     )
+    cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
 
 except Exception as e:
     print("❌ MySQL Connection Error:", e)
-    db = None
-
-cursor = db.cursor(dictionary=True, buffered=True)
 
 
 # ---------------- EMAIL FUNCTION ----------------
@@ -51,44 +52,35 @@ def send_email(to, subject, body):
         return False
 
 
-# ---------------- API KEY CHECK ----------------
+# ---------------- API KEY ----------------
 def validate_api_key(req):
     api_key = req.headers.get("x-api-key")
 
-    if not api_key:
-        return False, "API key missing"
+    if api_key != "test123":
+        return False
 
-    cursor.execute(
-        "SELECT * FROM api_clients WHERE api_key=%s AND status='active'",
-        (api_key,)
-    )
-    client = cursor.fetchone()
-
-    if not client:
-        return False, "Invalid API key"
-
-    return True, client["client_name"]
+    return True
 
 
+# ---------------- HOME ----------------
 @app.route("/")
 def home():
-    return "🚀 Customer AI API is LIVE!"
+    return "🚀 Customer AI API LIVE"
 
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "success",
-        "message": "API is running"
-    })
+    return jsonify({"status": "success", "message": "API is running"})
 
 
 # ---------------- TRACK VIEW ----------------
 @app.route("/api/track-view", methods=["POST"])
 def track_view():
-    valid, result = validate_api_key(request)
-    if not valid:
-        return jsonify({"status": "error", "message": result}), 401
+    if not db or not cursor:
+        return jsonify({"error": "Database not connected"}), 500
+
+    if not validate_api_key(request):
+        return jsonify({"error": "Invalid API key"}), 401
 
     data = request.get_json()
     email = data.get("email")
@@ -113,16 +105,17 @@ def track_view():
         """, (email, product_id))
 
     db.commit()
-
-    return jsonify({"status": "success"})
+    return jsonify({"message": "view tracked"})
 
 
 # ---------------- ADD TO CART ----------------
 @app.route("/api/add-to-cart", methods=["POST"])
 def add_to_cart():
-    valid, result = validate_api_key(request)
-    if not valid:
-        return jsonify({"status": "error"}), 401
+    if not db or not cursor:
+        return jsonify({"error": "Database not connected"}), 500
+
+    if not validate_api_key(request):
+        return jsonify({"error": "Invalid API key"}), 401
 
     data = request.get_json()
     email = data.get("email")
@@ -136,30 +129,42 @@ def add_to_cart():
 
     db.commit()
 
-    return jsonify({"status": "success"})
+    decision = check_behavior(email)
+    return jsonify({"decision": decision})
 
 
 # ---------------- ANALYZE ----------------
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    valid, result = validate_api_key(request)
-    if not valid:
-        return jsonify({"status": "error"}), 401
+    if not db or not cursor:
+        return jsonify({"error": "Database not connected"}), 500
+
+    if not validate_api_key(request):
+        return jsonify({"error": "Invalid API key"}), 401
 
     email = request.json.get("email")
 
+    decision = check_behavior(email)
+    return jsonify({"decision": decision})
+
+
+# ---------------- BEHAVIOR LOGIC ----------------
+def check_behavior(email):
     cursor.execute("SELECT * FROM user_behavior WHERE email=%s", (email,))
     rows = cursor.fetchall()
 
     for row in rows:
         if row["added_to_cart"]:
-            send_email(email, "Discount 🎉", "Get 10% OFF!")
-            return jsonify({"decision": "discount_sent"})
+            send_email(email, "Discount 🎉", "Get 10% OFF now!")
+            return "💸 discount_sent"
 
-    return jsonify({"decision": "no_action"})
+        if row["clicks"] >= 2:
+            return "👀 interested_user"
+
+    return "no_action"
 
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # ✅ Render port
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
