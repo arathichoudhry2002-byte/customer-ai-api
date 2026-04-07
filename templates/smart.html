@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart AI System</title>
+</head>
+<body>
+
+<h1>🧠 Smart AI Decision System</h1>
+
+<form method="POST">
+    <input type="number" name="tenure" placeholder="Tenure" required><br><br>
+    <input type="number" name="monthly" placeholder="Monthly Charges" required><br><br>
+    <input type="number" name="actions" placeholder="User Actions" required><br><br>
+    <input type="email" name="email" placeholder="Enter Email" required><br><br>
+    <button type="submit">Analyze</button>
+</form>
+
+{% if result %}
+    <h2>{{ result }}</h2>
+{% endif %}
+
+</body>
+</html>
