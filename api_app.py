@@ -10,7 +10,6 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 
-# ✅ YOUR EMAIL DETAILS
 app.config['MAIL_USERNAME'] = 'arathi.1ki23ai006@gmail.com'
 app.config['MAIL_PASSWORD'] = 'czcbnzrolvxzemgq'
 
@@ -27,7 +26,7 @@ try:
         password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
         database="railway",
         port=25755,
-        ssl_disabled=False,          # 🔥 IMPORTANT FIX
+        ssl_disabled=False,
         ssl_verify_cert=False
     )
 
@@ -55,10 +54,28 @@ def send_email(to, subject, body):
         return False
 
 
-# ---------------- API KEY ----------------
+# ---------------- API KEY (🔥 FIXED) ----------------
 def validate_api_key(req):
-    api_key = req.headers.get("x-api-key")
-    return api_key == "test123"
+    try:
+        api_key = req.headers.get("x-api-key")
+
+        if not api_key:
+            return False
+
+        cursor.execute(
+            "SELECT * FROM api_clients WHERE api_key=%s AND status='active'",
+            (api_key,)
+        )
+        client = cursor.fetchone()
+
+        if not client:
+            return False
+
+        return True
+
+    except Exception as e:
+        print("❌ API KEY ERROR:", e)
+        return False
 
 
 # ---------------- HOME ----------------
@@ -134,7 +151,6 @@ def add_to_cart():
         if not email or not product_id:
             return jsonify({"error": "Missing email or product_id"}), 400
 
-        # 🔥 CHECK IF ROW EXISTS
         cursor.execute(
             "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
             (email, product_id)
@@ -148,7 +164,6 @@ def add_to_cart():
                 WHERE email=%s AND product_id=%s
             """, (email, product_id))
         else:
-            # 🔥 INSERT IF NOT EXISTS
             cursor.execute("""
                 INSERT INTO user_behavior (email, product_id, clicks, added_to_cart)
                 VALUES (%s, %s, 1, TRUE)
@@ -163,6 +178,7 @@ def add_to_cart():
         print("❌ ADD TO CART ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
+
 # ---------------- ANALYZE ----------------
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
@@ -174,7 +190,6 @@ def analyze():
             return jsonify({"error": "Invalid API key"}), 401
 
         data = request.get_json(force=True)
-
         email = data.get("email")
 
         if not email:
