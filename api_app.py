@@ -11,27 +11,27 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 
-# 🔥 DIRECT VALUE (WORKING)
-app.config['MAIL_USERNAME'] = "arathi.1ki23ai006@gmail.com"
-app.config['MAIL_PASSWORD'] = "czcbnzrolvxzemgq"  # remove spaces
+# ✅ USE ENV (IMPORTANT)
+app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
 
 mail = Mail(app)
-# ---------------- DB CONNECT (🔥 FIXED) ----------------
+
+# ---------------- DB CONNECT ----------------
 try:
     db = mysql.connector.connect(
-    host=os.environ.get("DB_HOST", "127.0.0.1"),
-    user=os.environ.get("DB_USER", "root"),
-    password=os.environ.get("DB_PASSWORD", "your_local_password"),
-    database=os.environ.get("DB_NAME", "customer_ai"),
-    port=int(os.environ.get("DB_PORT", 3306))
-)
+        host=os.environ.get("HOST"),
+        user=os.environ.get("USER"),
+        password=os.environ.get("PASSWORD"),
+        database=os.environ.get("DATABASE"),
+        port=int(os.environ.get("PORT"))
+    )
     print("✅ MySQL Connected Successfully")
 
 except Exception as e:
     print("❌ MySQL Connection Error:", e)
-    exit()
+    db = None
 
-# buffered=True avoids unread result errors
 cursor = db.cursor(dictionary=True, buffered=True)
 
 
@@ -70,12 +70,12 @@ def validate_api_key(req):
 
     return True, client["client_name"]
 
+
 @app.route("/")
 def home():
-    return "🚀 Customer AI API is running!"
+    return "🚀 Customer AI API is LIVE!"
 
 
-# ---------------- HEALTH ----------------
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({
@@ -91,18 +91,9 @@ def track_view():
     if not valid:
         return jsonify({"status": "error", "message": result}), 401
 
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
-
+    data = request.get_json()
     email = data.get("email")
     product_id = data.get("product_id")
-
-    if not email or product_id is None:
-        return jsonify({
-            "status": "error",
-            "message": "email and product_id required"
-        }), 400
 
     cursor.execute(
         "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
@@ -113,8 +104,7 @@ def track_view():
     if row:
         cursor.execute("""
             UPDATE user_behavior
-            SET clicks = clicks + 1,
-                last_action = CURRENT_TIMESTAMP
+            SET clicks = clicks + 1
             WHERE email=%s AND product_id=%s
         """, (email, product_id))
     else:
@@ -125,11 +115,7 @@ def track_view():
 
     db.commit()
 
-    return jsonify({
-        "status": "success",
-        "message": "Product view tracked",
-        "client": result
-    })
+    return jsonify({"status": "success"})
 
 
 # ---------------- ADD TO CART ----------------
@@ -137,47 +123,21 @@ def track_view():
 def add_to_cart():
     valid, result = validate_api_key(request)
     if not valid:
-        return jsonify({"status": "error", "message": result}), 401
+        return jsonify({"status": "error"}), 401
 
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
-
+    data = request.get_json()
     email = data.get("email")
     product_id = data.get("product_id")
 
-    if not email or product_id is None:
-        return jsonify({
-            "status": "error",
-            "message": "email and product_id required"
-        }), 400
-
-    cursor.execute(
-        "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
-        (email, product_id)
-    )
-    row = cursor.fetchone()
-
-    if row:
-        cursor.execute("""
-            UPDATE user_behavior
-            SET added_to_cart = TRUE,
-                last_action = CURRENT_TIMESTAMP
-            WHERE email=%s AND product_id=%s
-        """, (email, product_id))
-    else:
-        cursor.execute("""
-            INSERT INTO user_behavior (email, product_id, clicks, added_to_cart)
-            VALUES (%s, %s, 0, TRUE)
-        """, (email, product_id))
+    cursor.execute("""
+        UPDATE user_behavior
+        SET added_to_cart = TRUE
+        WHERE email=%s AND product_id=%s
+    """, (email, product_id))
 
     db.commit()
 
-    return jsonify({
-        "status": "success",
-        "message": "Added to cart",
-        "client": result
-    })
+    return jsonify({"status": "success"})
 
 
 # ---------------- ANALYZE ----------------
@@ -185,34 +145,22 @@ def add_to_cart():
 def analyze():
     valid, result = validate_api_key(request)
     if not valid:
-        return jsonify({"status": "error", "message": result}), 401
+        return jsonify({"status": "error"}), 401
 
-    data = request.get_json(silent=True)
-    email = data.get("email")
-
-    if not email:
-        return jsonify({"status": "error", "message": "email required"}), 400
+    email = request.json.get("email")
 
     cursor.execute("SELECT * FROM user_behavior WHERE email=%s", (email,))
     rows = cursor.fetchall()
-
-    if not rows:
-        return jsonify({
-            "status": "success",
-            "decision": "no_action"
-        })
 
     for row in rows:
         if row["added_to_cart"]:
             send_email(email, "Discount 🎉", "Get 10% OFF!")
             return jsonify({"decision": "discount_sent"})
 
-        if row["clicks"] >= 2:
-            return jsonify({"decision": "interested_user"})
-
     return jsonify({"decision": "no_action"})
 
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
