@@ -22,11 +22,11 @@ cursor = None
 
 try:
     db = mysql.connector.connect(
-        host=os.environ.get("HOST"),
-        user=os.environ.get("USER"),
-        password=os.environ.get("PASSWORD"),
-        database=os.environ.get("DATABASE"),
-        port=int(os.environ.get("DB_PORT"))
+        host=os.environ.get("HOST"),          # Railway host
+        user=os.environ.get("USER"),          # root
+        password=os.environ.get("PASSWORD"),  # Railway password
+        database=os.environ.get("DATABASE"),  # railway
+        port=int(os.environ.get("PORT"))      # 25755 ✅ FIXED
     )
     cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
@@ -76,76 +76,104 @@ def health():
 # ---------------- TRACK VIEW ----------------
 @app.route("/api/track-view", methods=["POST"])
 def track_view():
-    if not db or not cursor:
-        return jsonify({"error": "Database not connected"}), 500
+    try:
+        if not db or not cursor:
+            return jsonify({"error": "Database not connected"}), 500
 
-    if not validate_api_key(request):
-        return jsonify({"error": "Invalid API key"}), 401
+        if not validate_api_key(request):
+            return jsonify({"error": "Invalid API key"}), 401
 
-    data = request.get_json()
-    email = data.get("email")
-    product_id = data.get("product_id")
+        data = request.get_json(force=True)
 
-    cursor.execute(
-        "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
-        (email, product_id)
-    )
-    row = cursor.fetchone()
+        email = data.get("email")
+        product_id = data.get("product_id")
 
-    if row:
-        cursor.execute("""
-            UPDATE user_behavior
-            SET clicks = clicks + 1
-            WHERE email=%s AND product_id=%s
-        """, (email, product_id))
-    else:
-        cursor.execute("""
-            INSERT INTO user_behavior (email, product_id, clicks, added_to_cart)
-            VALUES (%s, %s, 1, FALSE)
-        """, (email, product_id))
+        if not email or not product_id:
+            return jsonify({"error": "Missing email or product_id"}), 400
 
-    db.commit()
-    return jsonify({"message": "view tracked"})
+        cursor.execute(
+            "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
+            (email, product_id)
+        )
+        row = cursor.fetchone()
+
+        if row:
+            cursor.execute("""
+                UPDATE user_behavior
+                SET clicks = clicks + 1
+                WHERE email=%s AND product_id=%s
+            """, (email, product_id))
+        else:
+            cursor.execute("""
+                INSERT INTO user_behavior (email, product_id, clicks, added_to_cart)
+                VALUES (%s, %s, 1, FALSE)
+            """, (email, product_id))
+
+        db.commit()
+        return jsonify({"message": "view tracked"})
+
+    except Exception as e:
+        print("❌ TRACK ERROR:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------- ADD TO CART ----------------
 @app.route("/api/add-to-cart", methods=["POST"])
 def add_to_cart():
-    if not db or not cursor:
-        return jsonify({"error": "Database not connected"}), 500
+    try:
+        if not db or not cursor:
+            return jsonify({"error": "Database not connected"}), 500
 
-    if not validate_api_key(request):
-        return jsonify({"error": "Invalid API key"}), 401
+        if not validate_api_key(request):
+            return jsonify({"error": "Invalid API key"}), 401
 
-    data = request.get_json()
-    email = data.get("email")
-    product_id = data.get("product_id")
+        data = request.get_json(force=True)
 
-    cursor.execute("""
-        UPDATE user_behavior
-        SET added_to_cart = TRUE
-        WHERE email=%s AND product_id=%s
-    """, (email, product_id))
+        email = data.get("email")
+        product_id = data.get("product_id")
 
-    db.commit()
+        if not email or not product_id:
+            return jsonify({"error": "Missing email or product_id"}), 400
 
-    decision = check_behavior(email)
-    return jsonify({"decision": decision})
+        cursor.execute("""
+            UPDATE user_behavior
+            SET added_to_cart = TRUE
+            WHERE email=%s AND product_id=%s
+        """, (email, product_id))
+
+        db.commit()
+
+        decision = check_behavior(email)
+        return jsonify({"decision": decision})
+
+    except Exception as e:
+        print("❌ CART ERROR:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------- ANALYZE ----------------
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    if not db or not cursor:
-        return jsonify({"error": "Database not connected"}), 500
+    try:
+        if not db or not cursor:
+            return jsonify({"error": "Database not connected"}), 500
 
-    if not validate_api_key(request):
-        return jsonify({"error": "Invalid API key"}), 401
+        if not validate_api_key(request):
+            return jsonify({"error": "Invalid API key"}), 401
 
-    email = request.json.get("email")
+        data = request.get_json(force=True)
 
-    decision = check_behavior(email)
-    return jsonify({"decision": decision})
+        email = data.get("email")
+
+        if not email:
+            return jsonify({"error": "Email missing"}), 400
+
+        decision = check_behavior(email)
+        return jsonify({"decision": decision})
+
+    except Exception as e:
+        print("❌ ANALYZE ERROR:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------- BEHAVIOR LOGIC ----------------
@@ -153,12 +181,15 @@ def check_behavior(email):
     cursor.execute("SELECT * FROM user_behavior WHERE email=%s", (email,))
     rows = cursor.fetchall()
 
+    if not rows:
+        return "no_data"
+
     for row in rows:
-        if row["added_to_cart"]:
+        if row.get("added_to_cart"):
             send_email(email, "Discount 🎉", "Get 10% OFF now!")
             return "💸 discount_sent"
 
-        if row["clicks"] >= 2:
+        if row.get("clicks", 0) >= 2:
             return "👀 interested_user"
 
     return "no_action"
@@ -166,5 +197,5 @@ def check_behavior(email):
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 10000))  # Render port
     app.run(host="0.0.0.0", port=port)
