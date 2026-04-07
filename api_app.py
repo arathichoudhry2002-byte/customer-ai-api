@@ -11,7 +11,6 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 
-# ✅ USE ENV (IMPORTANT)
 app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
 
@@ -24,7 +23,7 @@ try:
         user=os.environ.get("USER"),
         password=os.environ.get("PASSWORD"),
         database=os.environ.get("DATABASE"),
-        port=int(os.environ.get("PORT"))
+        port=int(os.environ.get("DB_PORT"))  # ✅ FIXED
     )
     print("✅ MySQL Connected Successfully")
 
@@ -162,5 +161,5 @@ def analyze():
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))  # ✅ Render port
     app.run(host="0.0.0.0", port=port)
