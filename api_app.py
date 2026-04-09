@@ -23,13 +23,13 @@ cursor = None
 
 try:
     db = mysql.connector.connect(
-        host="interchange.proxy.rlwy.net",
-        user="root",
-        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
-        database="railway",
-        port=25755,
-        ssl_disabled=False,
-        ssl_verify_cert=False
+    host="interchange.proxy.rlwy.net",
+    user="root",
+    password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
+    database="railway",
+    port=25755,
+    ssl_disabled=False,
+    ssl_verify_cert=False
     )
     cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
