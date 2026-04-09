@@ -25,7 +25,7 @@ try:
     db = mysql.connector.connect(
         host="interchange.proxy.rlwy.net",
         user="root",
-        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAb",
+        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
         database="railway",
         port=25755,
         ssl_disabled=False,
@@ -33,17 +33,14 @@ try:
     )
     cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
-
 except Exception as e:
     print("❌ MySQL Connection Error:", e)
-
 
 # ---------------- EMAIL FUNCTION ----------------
 def send_email(to, subject, body):
     try:
         print("🔥 Attempting to send email")
         print("📧 Recipient:", to)
-        print("📨 Subject:", subject)
 
         msg = Message(
             subject=subject,
@@ -51,16 +48,13 @@ def send_email(to, subject, body):
             recipients=[to]
         )
         msg.body = body
-
         mail.send(msg)
 
         print("✅ Email sent successfully!")
         return True
-
     except Exception as e:
         print("❌ Email error:", e)
         return False
-
 
 # ---------------- API KEY VALIDATION ----------------
 def validate_api_key(req):
@@ -69,7 +63,6 @@ def validate_api_key(req):
             return False
 
         api_key = req.headers.get("x-api-key")
-
         if not api_key:
             return False
 
@@ -78,39 +71,30 @@ def validate_api_key(req):
             (api_key,)
         )
         client = cursor.fetchone()
-
-        if not client:
-            return False
-
-        return True
-
+        return bool(client)
     except Exception as e:
         print("❌ API KEY ERROR:", e)
         return False
-
 
 # ---------------- HOME ----------------
 @app.route("/")
 def home():
     return "🚀 Customer AI API LIVE"
 
-
 # ---------------- HEALTH ----------------
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "success", "message": "API is running"})
 
-
 # ---------------- TEST EMAIL ----------------
 @app.route("/test-email")
 def test_email():
     sent = send_email(
-        "arathichoudhry2002@gmail.com", ...,
+        "arathichoudhry2002@gmail.com",
         "Test Email 🚀",
         "Hello! This is a direct test email from your backend."
     )
     return jsonify({"sent": sent})
-
 
 # ---------------- TRACK VIEW ----------------
 @app.route("/api/track-view", methods=["POST"])
@@ -123,7 +107,6 @@ def track_view():
             return jsonify({"error": "Invalid API key"}), 401
 
         data = request.get_json(force=True)
-
         email = data.get("email")
         product_id = data.get("product_id")
 
@@ -151,11 +134,9 @@ def track_view():
 
         db.commit()
         return jsonify({"message": "view tracked"})
-
     except Exception as e:
         print("❌ TRACK ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
 
 # ---------------- ADD TO CART ----------------
 @app.route("/api/add-to-cart", methods=["POST"])
@@ -168,7 +149,6 @@ def add_to_cart():
             return jsonify({"error": "Invalid API key"}), 401
 
         data = request.get_json(force=True)
-
         email = data.get("email")
         product_id = data.get("product_id")
 
@@ -210,11 +190,9 @@ def add_to_cart():
             "message": "Added to cart",
             "email_sent": email_sent
         })
-
     except Exception as e:
         print("❌ ADD TO CART ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
 
 # ---------------- ANALYZE ----------------
 @app.route("/api/analyze", methods=["POST"])
@@ -232,36 +210,24 @@ def analyze():
         if not email:
             return jsonify({"error": "Email missing"}), 400
 
-        decision = check_behavior(email)
-        return jsonify({"decision": decision})
+        cursor.execute("SELECT * FROM user_behavior WHERE email=%s", (email,))
+        rows = cursor.fetchall()
 
+        if not rows:
+            return jsonify({"decision": "no_data"})
+
+        for row in rows:
+            if row.get("added_to_cart"):
+                send_email(email, "Discount 🎉", "Get 10% OFF now!")
+                return jsonify({"decision": "💸 discount_sent"})
+
+            if row.get("clicks", 0) >= 2:
+                return jsonify({"decision": "👀 interested_user"})
+
+        return jsonify({"decision": "no_action"})
     except Exception as e:
         print("❌ ANALYZE ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
-
-# ---------------- BEHAVIOR LOGIC ----------------
-def check_behavior(email):
-    cursor.execute("SELECT * FROM user_behavior WHERE email=%s", (email,))
-    rows = cursor.fetchall()
-
-    if not rows:
-        return "no_data"
-
-    for row in rows:
-        if row.get("added_to_cart"):
-            send_email(
-                email,
-                "Discount 🎉",
-                "Get 10% OFF now!"
-            )
-            return "💸 discount_sent"
-
-        if row.get("clicks", 0) >= 2:
-            return "👀 interested_user"
-
-    return "no_action"
-
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
