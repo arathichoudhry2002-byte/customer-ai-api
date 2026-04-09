@@ -95,12 +95,16 @@ def home():
 # ---------------- HEALTH ----------------
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "success",
-        "message": "API is running"
-    })
+    return jsonify({"status": "success", "message": "API is running"})
 
-
+@app.route("/test-email")
+def test_email():
+    sent = send_email(
+        "arathichoudhry2002@gmail.com",
+        "Test Email 🚀",
+        "Hello! This is a direct test email from your backend."
+    )
+    return jsonify({"sent": sent})
 # ---------------- TEST EMAIL ----------------
 @app.route("/test-email")
 def test_email():
