@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 import mysql.connector
 from flask_mail import Mail, Message
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
 print("🚀 Customer AI API Running...")
 
 # ---------------- MAIL CONFIG ----------------
@@ -97,14 +100,7 @@ def home():
 def health():
     return jsonify({"status": "success", "message": "API is running"})
 
-@app.route("/test-email")
-def test_email():
-    sent = send_email(
-        "arathichoudhry2002@gmail.com",
-        "Test Email 🚀",
-        "Hello! This is a direct test email from your backend."
-    )
-    return jsonify({"sent": sent})
+
 # ---------------- TEST EMAIL ----------------
 @app.route("/test-email")
 def test_email():
