@@ -9,7 +9,6 @@ print("🚀 Customer AI API Running...")
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-
 app.config['MAIL_USERNAME'] = 'arathi.1ki23ai006@gmail.com'
 app.config['MAIL_PASSWORD'] = 'czcbnzrolvxzemgq'
 
@@ -29,7 +28,6 @@ try:
         ssl_disabled=False,
         ssl_verify_cert=False
     )
-
     cursor = db.cursor(dictionary=True, buffered=True)
     print("✅ MySQL Connected Successfully")
 
@@ -40,23 +38,31 @@ except Exception as e:
 # ---------------- EMAIL FUNCTION ----------------
 def send_email(to, subject, body):
     try:
+        print("🔥 Attempting to send email to:", to)
+
         msg = Message(
-            subject,
+            subject=subject,
             sender=app.config['MAIL_USERNAME'],
             recipients=[to]
         )
         msg.body = body
+
         mail.send(msg)
-        print(f"✅ Email sent to {to}")
+
+        print("✅ Email sent successfully!")
         return True
+
     except Exception as e:
         print("❌ Email error:", e)
         return False
 
 
-# ---------------- API KEY (🔥 FIXED) ----------------
+# ---------------- API KEY VALIDATION ----------------
 def validate_api_key(req):
     try:
+        if not db or not cursor:
+            return False
+
         api_key = req.headers.get("x-api-key")
 
         if not api_key:
@@ -84,9 +90,13 @@ def home():
     return "🚀 Customer AI API LIVE"
 
 
+# ---------------- HEALTH ----------------
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "success", "message": "API is running"})
+    return jsonify({
+        "status": "success",
+        "message": "API is running"
+    })
 
 
 # ---------------- TRACK VIEW ----------------
@@ -116,7 +126,8 @@ def track_view():
         if row:
             cursor.execute("""
                 UPDATE user_behavior
-                SET clicks = clicks + 1
+                SET clicks = clicks + 1,
+                    last_action = CURRENT_TIMESTAMP
                 WHERE email=%s AND product_id=%s
             """, (email, product_id))
         else:
@@ -151,6 +162,7 @@ def add_to_cart():
         if not email or not product_id:
             return jsonify({"error": "Missing email or product_id"}), 400
 
+        # check row first
         cursor.execute(
             "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
             (email, product_id)
@@ -160,7 +172,8 @@ def add_to_cart():
         if row:
             cursor.execute("""
                 UPDATE user_behavior
-                SET added_to_cart = TRUE
+                SET added_to_cart = TRUE,
+                    last_action = CURRENT_TIMESTAMP
                 WHERE email=%s AND product_id=%s
             """, (email, product_id))
         else:
@@ -171,8 +184,20 @@ def add_to_cart():
 
         db.commit()
 
-        decision = check_behavior(email)
-        return jsonify({"decision": decision})
+        print("🔥 ADD TO CART HIT")
+        print("📧 Sending cart email to:", email)
+
+        email_sent = send_email(
+            email,
+            "🎉 Cart Reminder!",
+            "You added an item to your cart.\n\nComplete your purchase now and get 10% OFF 💸"
+        )
+
+        return jsonify({
+            "status": "success",
+            "message": "Added to cart",
+            "email_sent": email_sent
+        })
 
     except Exception as e:
         print("❌ ADD TO CART ERROR:", e)
@@ -213,7 +238,11 @@ def check_behavior(email):
 
     for row in rows:
         if row.get("added_to_cart"):
-            send_email(email, "Discount 🎉", "Get 10% OFF now!")
+            send_email(
+                email,
+                "Discount 🎉",
+                "Get 10% OFF now!"
+            )
             return "💸 discount_sent"
 
         if row.get("clicks", 0) >= 2:
