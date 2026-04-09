@@ -22,7 +22,7 @@ try:
     db = mysql.connector.connect(
         host="interchange.proxy.rlwy.net",
         user="root",
-        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAbr",
+        password="nHZZvmjfVoaRTzdPgQhQyGLYZnrLXAb",
         database="railway",
         port=25755,
         ssl_disabled=False,
@@ -38,7 +38,9 @@ except Exception as e:
 # ---------------- EMAIL FUNCTION ----------------
 def send_email(to, subject, body):
     try:
-        print("🔥 Attempting to send email to:", to)
+        print("🔥 Attempting to send email")
+        print("📧 Recipient:", to)
+        print("📨 Subject:", subject)
 
         msg = Message(
             subject=subject,
@@ -97,6 +99,17 @@ def health():
         "status": "success",
         "message": "API is running"
     })
+
+
+# ---------------- TEST EMAIL ----------------
+@app.route("/test-email")
+def test_email():
+    sent = send_email(
+        "arathichoudhry2002@gmail.com", ...,
+        "Test Email 🚀",
+        "Hello! This is a direct test email from your backend."
+    )
+    return jsonify({"sent": sent})
 
 
 # ---------------- TRACK VIEW ----------------
@@ -162,7 +175,6 @@ def add_to_cart():
         if not email or not product_id:
             return jsonify({"error": "Missing email or product_id"}), 400
 
-        # check row first
         cursor.execute(
             "SELECT * FROM user_behavior WHERE email=%s AND product_id=%s",
             (email, product_id)
